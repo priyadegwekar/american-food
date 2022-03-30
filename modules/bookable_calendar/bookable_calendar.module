@@ -1,0 +1,350 @@
+<?php
+
+/**
+ * @file
+ * Provides a bookable calendar.
+ */
+
+use Drupal\Core\Entity\EntityTypeInterface;
+use Drupal\Core\Render\BubbleableMetadata;
+use Drupal\Core\Render\Element;
+use Drupal\Core\Render\Markup;
+use Drupal\Core\Url;
+
+/**
+ * Implements hook_theme().
+ */
+function bookable_calendar_theme() {
+  return [
+    'bookable_calendar' => [
+      'render element' => 'content',
+    ],
+    'bookable_calendar_opening' => [
+      'render element' => 'content',
+    ],
+    'booking_contact' => [
+      'render element' => 'content',
+    ],
+    'booking' => [
+      'render element' => 'content',
+    ],
+    'bookable_calendar_opening_inst' => [
+      'render element' => 'content',
+    ],
+    'admin_booking_list' => [
+      'render element' => 'children',
+      'template' => 'admin-booking-list',
+      'variables' => [
+        'rows' => []
+      ]
+
+    ]
+  ];
+}
+
+/**
+ * Prepares variables for bookable calendar templates.
+ *
+ * Default template: bookable-calendar.html.twig.
+ *
+ * @param array $variables
+ *   An associative array containing:
+ *   - elements: An associative array containing the bookable calendar information and any
+ *     fields attached to the entity.
+ *   - attributes: HTML attributes for the containing element.
+ */
+function template_preprocess_bookable_calendar(array &$variables) {
+  $entity_type_manager = \Drupal::service('entity_type.manager');
+  $instance_storage = $entity_type_manager->getStorage('bookable_calendar_opening_inst');
+  $this_calendar = $variables['content']['#bookable_calendar'];
+  $query = \Drupal::database()->select('bookable_calendar__calendar_openings', 'cal');
+  $query->fields('cal', [
+    'entity_id',
+    'calendar_openings_target_id'
+  ]);
+  $query->condition('cal.entity_id', $this_calendar->id());
+  $query->leftJoin('bookable_calendar_opening_inst', 'inst', 'inst.booking_opening = cal.calendar_openings_target_id');
+  $query->fields('inst', [
+    'booking_opening',
+    'id'
+  ]);
+  $opening_instances = $query->execute()->fetchAllAssoc('id');
+  if ($opening_instances) {
+    $instances = array_keys($opening_instances);
+    $loaded_instances = $instance_storage->loadMultiple($instances);
+    $variables['content']['instances'] = [];
+    foreach ($loaded_instances as $key => $instance) {
+      $render_instance = Drupal::entityTypeManager()->getViewBuilder('bookable_calendar_opening_inst')->view($instance);
+      $variables['content']['instances'][$key] = $render_instance;
+    }
+  }
+}
+
+/**
+ * Prepares variables for booking calendar opening templates.
+ *
+ * Default template: bookable-calendar-opening.html.twig.
+ *
+ * @param array $variables
+ *   An associative array containing:
+ *   - elements: An associative array containing the booking calendar opening information and any
+ *     fields attached to the entity.
+ *   - attributes: HTML attributes for the containing element.
+ */
+function template_preprocess_bookable_calendar_opening(array &$variables) {
+  $entity_type_manager = \Drupal::service('entity_type.manager');
+  $instance_storage = $entity_type_manager->getStorage('bookable_calendar_opening_inst');
+  $this_opening = $variables['content']['#bookable_calendar_opening'];
+  $instances = $this_opening->get('booking_instance')->getValue();
+  $variables['instances'] = [];
+  foreach ($instances as $key => $instance_id) {
+    $instance = $instance_storage->load($instance_id['target_id']);
+    $render_instance = Drupal::entityTypeManager()->getViewBuilder('bookable_calendar_opening_inst')->view($instance);
+    $variables['instances'][$key] = $render_instance;
+  }
+}
+
+/**
+ * Prepares variables for booking contact templates.
+ *
+ * Default template: booking-contact.html.twig.
+ *
+ * @param array $variables
+ *   An associative array containing:
+ *   - elements: An associative array containing the booking contact information and any
+ *     fields attached to the entity.
+ *   - attributes: HTML attributes for the containing element.
+ */
+function template_preprocess_booking_contact(array &$variables) {
+  // foreach (Element::children($variables['content']) as $key) {
+  //   $variables['content'][$key] = $variables['content'][$key];
+  // }
+}
+
+/**
+ * Prepares variables for booking templates.
+ *
+ * Default template: booking.html.twig.
+ *
+ * @param array $variables
+ *   An associative array containing:
+ *   - elements: An associative array containing the booking information and any
+ *     fields attached to the entity.
+ *   - attributes: HTML attributes for the containing element.
+ */
+function template_preprocess_booking(array &$variables) {
+  // foreach (Element::children($variables['elements']) as $key) {
+  //   $variables['content'][$key] = $variables['elements'][$key];
+  // }
+}
+
+
+/**
+ * Prepares variables for bookable calendar opening instance templates.
+ *
+ * Default template: bookable-calendar-opening-inst.html.twig.
+ *
+ * @param array $variables
+ *   An associative array containing:
+ *   - elements: An associative array containing the bookable calendar opening instance information and any
+ *     fields attached to the entity.
+ *   - attributes: HTML attributes for the containing element.
+ */
+function template_preprocess_bookable_calendar_opening_inst(array &$variables) {
+  $this_instance = $variables['content']['#bookable_calendar_opening_inst'];
+  $variables['content']['date']['#attributes']['class'] = [
+    'opening-time'
+  ];
+
+  $variables['content']['availability'] = [
+    '#type' => 'container',
+    '#attributes' => [
+      'class' => [
+        'availability'
+      ]
+    ]
+  ];
+  $slots_available = $this_instance->slotsAvailable();
+  $max_slots = $this_instance->maxSlotsAvailable();
+  $remaining_percent = $slots_available / $max_slots;
+  if ($remaining_percent <= 0) {
+    $variables['attributes']['class'] = ['at-capacity'];
+  }
+  elseif ($remaining_percent < 0.25) {
+    $variables['attributes']['class'] = ['near-capacity'];
+  }
+  elseif ($remaining_percent <= 0.5) {
+    $variables['attributes']['class'] = ['limited'];
+  }
+  $variables['content']['availability']['seats_available'] = [
+    '#title' => t('Seats Available'),
+    '#type' => 'text',
+    '#markup' => '<div class="availability__seats-available">' . $slots_available . '</div>'
+  ];
+  $variables['content']['availability']['divider'] = [
+    '#type' => 'text',
+    '#markup' => '<div class="availability__divider">/</div>'
+  ];
+  $variables['content']['availability']['max_seats_available'] = [
+    '#title' => t('Max Seats Available'),
+    '#type' => 'text',
+    '#markup' => '<div class="availability__max-seats-available">' . $max_slots . '</div>'
+  ];
+
+  $url = Url::fromRoute('bookable_calendar.booking_contact.create', [
+    'opening_instance' => $this_instance->id()
+  ]);
+  $variables['content']['book_link'] = [
+    '#title' => t('Book this'),
+    '#type' => 'link',
+    '#url' => $url,
+    '#attributes' => [
+      'class' => [
+        'availability__link',
+        'button'
+      ]
+    ]
+  ];
+  $variables['bookable_calendar_opening_inst_id'] = $this_instance->id();
+  $variables['bookable_calendar_max_party_size'] = $this_instance->maxPartySize();
+  $variables['bookable_calendar_slots_as_parties'] = $this_instance->slotsAsParties();
+}
+
+/**
+ * Implements hook_mail().
+ */
+function bookable_calendar_mail($key, &$message, $params) {
+  switch ($key) {
+    case 'bookable_calendar_notification':
+      $options = [
+        'langcode' => $message['langcode'],
+      ];
+      $message['from'] = \Drupal::config('system.site')->get('mail');
+      $message['subject'] = t($params['subject'], $options);
+      $message['body'][] = Markup::create($params['message']);
+      break;
+  }
+}
+
+/**
+ * Implements hook_token_info().
+ */
+function bookable_calendar_token_info() {
+  $info = [];
+  $info['types']['bookable_calendar'] = [
+    'name' => t('Bookable Calendar'),
+    'description' => t('Tokens associated with Bookable Calendars')
+  ];
+  $info['tokens']['bookable_calendar']['title'][] = 'The title of the Calendar';
+  $info['tokens']['bookable_calendar']['description'][] = 'The description of Calendar';
+
+  $info['types']['booking_contact'] = [
+    'name' => t('Booking Contact'),
+    'description' => t('Tokens associated with Booking Contact')
+  ];
+  $info['tokens']['booking_contact']['url'][] = 'The URL for the Booking Contact';
+  $info['tokens']['booking_contact']['email'][] = 'The Email for the Booking Contact';
+  $info['tokens']['booking_contact']['party_size'][] = 'The Party Size for the Booking Contact';
+  $info['tokens']['booking_contact']['values'][] = 'The RAW Booking Contact Entity';
+  $info['tokens']['booking_contact']['hashed_login_url'][] = 'A public login path to let the user edit their booking without being a Drupal user';
+  $info['tokens']['booking_contact']['calendar_title'][] = 'The Calendar Title for this contact';
+
+  $info['types']['booking'] = [
+    'name' => t('Booking'),
+    'description' => t('Tokens associated with Bookings')
+  ];
+  $info['tokens']['booking']['date'][] = 'The date of a Booking';
+  $info['tokens']['booking']['created'][] = 'The time a Booking was created';
+  $info['tokens']['booking']['values'][] = 'The RAW Booking Entity';
+
+  return $info;
+
+}
+
+function bookable_calendar_tokens($type, $tokens, array $data, array $options, BubbleableMetadata $bubbleable_metadata) {
+  $replacements = [];
+  if ($type === 'bookable_calendar') {
+    foreach ($tokens as $name => $original) {
+      switch ($name) {
+        case 'title':
+          $replacements[$original] = $data['bookable_calendar']->getTitle();
+          break;
+        case 'description':
+          $replacements[$original] = $data['bookable_calendar']->getDescription();
+          break;
+      }
+    }
+  }
+  elseif ($type === 'booking_contact') {
+    foreach ($tokens as $name => $original) {
+      switch ($name) {
+        case 'url':
+          $replacements[$original] = $data['booking_contact']->toLink()->toString();
+          break;
+        case 'email':
+          $replacements[$original] = $data['booking_contact']->email->value;
+          break;
+        case 'part_size':
+          $replacements[$original] = $data['booking_contact']->party_size->value;
+          break;
+        case 'values':
+          $replacements[$original] = $data['booking_contact']->getRawValues();
+          break;
+        case 'hashed_login_url':
+          $replacements[$original] = $data['booking_contact']->generatePublicLoginLink();
+          break;
+        case 'calendar_title':
+          $replacements[$original] = $data['booking_contact']->getParentCalendar()->getTitle();
+          break;
+      }
+    }
+  }
+  elseif ($type === 'booking') {
+    foreach ($tokens as $name => $original) {
+      switch ($name) {
+        case 'date':
+          $replacements[$original] = $data['booking']->date->value;
+          break;
+        case 'created':
+          $replacements[$original] = $data['booking']->created->value;
+          break;
+        case 'values':
+          $replacements[$original] = $data['booking']->getRawValues();
+          break;
+      }
+    }
+  }
+
+  return $replacements;
+}
+
+function bookable_calendar_form_alter(&$form, \Drupal\Core\Form\FormStateInterface $form_state, $form_id) {
+  if ($form_id === 'booking_contact_add_form') {
+    // on booking contact add form, if on page with Instance ID in the url
+    // set that as the booking_instance reference and hide for element
+    $route_name = \Drupal::routeMatch()->getRouteName();
+    if ($route_name === 'bookable_calendar.booking_contact.create') {
+      $opening_instance = \Drupal::routeMatch()->getParameter('opening_instance');
+      if ($opening_instance) {
+        $form['booking_instance']['widget'][0]['target_id']['#default_value'] = $opening_instance;
+        $form['booking_instance']['#access'] = false;
+      }
+    }
+  }
+  elseif ($form_id === 'booking_contact_edit_form') {
+    // not allowing to change where your booking is yet
+    $form['booking_instance']['#access'] = false;
+  }
+  elseif ($form_id === 'booking_contact_delete_form') {
+    // alter submit when non-logged user is deleting their booking
+    $logged_in = \Drupal::currentUser()->isAuthenticated();
+    if (!$logged_in) {
+      $form['actions']['submit']['#submit'][] = 'bookable_calendar_delete_set_redirect';
+    }
+  }
+}
+
+function bookable_calendar_delete_set_redirect($form, FormStateInterface $form_state) {
+  $form_state->setRedirect('<front>');
+  \Drupal::messenger()->addStatus(t('Your booking has been deleted.'));
+}

@@ -1,0 +1,10 @@
+bookable_calendar: null
+_core:
+  default_config_hash: rFsOrm9hEodzQKTP5NOaP9VGrwkKEXXbAl61KX4xCac
+email_settings:
+  admin_email:
+    subject: 'A new booking was created for [booking_contact:calendar_title]'
+    body: "A new booking was created:\r\n\r\n[booking_contact:values]"
+  user_email:
+    subject: 'Your booking is confirmed'
+    body: "You can view your booking here: [booking_contact:hashed_login_url]\r\n\r\n[booking_contact:values]"

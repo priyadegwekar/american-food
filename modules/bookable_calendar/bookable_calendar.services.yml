@@ -1,0 +1,9 @@
+services:
+  bookable_calendar.notification:
+    class: Drupal\bookable_calendar\Notification
+    arguments: ['@entity_type.manager', '@plugin.manager.mail', '@messenger']
+
+  bookable_calendar.route_subscriber:
+    class: Drupal\bookable_calendar\EventSubscriber\BookableCalendarRouteSubscriber
+    tags:
+      - { name: event_subscriber }

@@ -1,0 +1,9 @@
+type: module
+name : Cache Clear Shortcut
+description : Clear the cache using shortcut
+core_version_requirement: ^8.8 || ^9
+
+# Information added by Drupal.org packaging script on 2021-10-16
+version: '2.0.0'
+project: 'cache_clear_shortcut'
+datestamp: 1634367224
