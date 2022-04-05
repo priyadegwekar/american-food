@@ -6,3 +6,13 @@
  *
  * Place your custom PHP code in this file.
  */
+function burgerhouse_preprocess_html(&$variables) {
+    // Add node ID to the body class.
+    $node = \Drupal::routeMatch()->getParameter('node');
+    if (is_object($node)) {
+      $variables['attributes']['class'][] = 'node-' . $node->id();
+    }
+    
+   
+  }
+  

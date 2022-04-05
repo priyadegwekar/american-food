@@ -18,7 +18,6 @@ regions:
   sidebar_first: 'Primary'
   sidebar_second: 'Secondary'
   footer: 'Footer'
-  footer_bottom: 'Footer bottom'
   page_top: 'Page top'
   page_bottom: 'Page bottom'
 

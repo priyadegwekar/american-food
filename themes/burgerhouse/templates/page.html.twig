@@ -109,7 +109,7 @@
         {# Page banner #}
       {% if page.page_banner %}
         {% block page_banner %}
-          <div class="col-sm-12" role="heading">
+          <div class="col-sm-12 banner-slider" role="heading">
             {{ page.page_banner }}
           </div>
         {% endblock %}
@@ -173,16 +173,5 @@
     <footer class="footer {{ container }}" role="contentinfo">
       {{ page.footer }}
     </footer>
-  {% endblock %}
-{% endif %}
-{% if page.footer_bottom %}
-  {% block footer_bottom %}
-    <div class="footer-bottom" role="contentinfo">
-		<div class="container">
-			<div class="row">
-		{{ page.footer_bottom }}
-			</div>
-		</div>
-    </div>
   {% endblock %}
 {% endif %}
